@@ -1,3 +1,5 @@
+let colorSmoothing;
+
 class Tile 
 {
     constructor(val) 
@@ -10,7 +12,7 @@ class Tile
             {"type":"mountain", "height":0.70, "color":color(84, 87, 82)},
             {"type":"snow", "height":1, "color":color(220, 220, 220)},
         ];
-    
+        this.newColor;
         let i = 0;
         for(let t of this.types) 
         {
@@ -23,27 +25,28 @@ class Tile
         }
         this.type = this.types[0].type;
         this.color = this.types[0].color;   
+        
     }
 
     draw(x, y, w, h, west, north, east, south)
     {
         noStroke();
-        if(this.newColor){
+        if(this.newColor)
+        {
             fill(this.newColor);
         }
         else if(west, north, east, south) 
         {
-            let xCol = lerpColor(west.color, east.color, 0.5);
-            let yCol = lerpColor(south.color, north.color, 0.5);
-            let avgCol = lerpColor(xCol, yCol, 0.5);
-            this.newColor = lerpColor(this.color, avgCol, 0.5);
+            let xCol = lerpColor(west.color, east.color, colorSmoothing);
+            let yCol = lerpColor(south.color, north.color, colorSmoothing);
+            let avgCol = lerpColor(xCol, yCol, colorSmoothing);
+            this.newColor = (lerpColor(this.color, avgCol, colorSmoothing));
             fill(this.newColor);
-
         }
         else if(west, north) 
         {
-            let avgCol = lerpColor(west.color, north.color, 0.5);
-            this.newColor = lerpColor(this.color, avgCol, 0.5);
+            let avgCol = lerpColor(west.color, north.color, colorSmoothing);
+            this.newColor = (lerpColor(this.color, avgCol, colorSmoothing));
             fill(this.newColor);
         }
         else {
@@ -52,13 +55,15 @@ class Tile
         rect(x, y, w, h);
     }
 
-
     toString() {
         return this.type;
     }
 }
-let resolution = Math.PI * 3;
-let seed = 1;
+let resolution;
+let seed;
+let falloff;
+let octaves;
+
 class TerrainGenerator 
 {
     constructor(width, height)
@@ -66,6 +71,7 @@ class TerrainGenerator
         this.w = width;
         this.h = height;
         noiseSeed(seed);
+        noiseDetail(octaves, falloff);
     }
 
     generate()
@@ -90,37 +96,86 @@ class TerrainGenerator
         }
         return arr;
     }    
+    
 }
 
 let terrain = [];
-let size = 8;
+
+let chunkSize;
+let size;
+
+let camX;
+let camY;
+
+// SLIDERS
+let chunkSizeS;
 let sizeS;
 let resoS;
 let seedS;
+let smoothS;
+let widthS;
+let heightS;
+let octavesS;
+let falloffS;
+
+
 function setup() 
 {
-    seedS = createSlider(0, 255, 100);
+    let container = createDiv();
+    let leftCol = createDiv();
+    let rightCol = createDiv();
+    
+    seedS = createSlider(0, 255, 101);
     resoS = createSlider(0, 25, 4);
     sizeS = createSlider(0, 25, 8);
+    smoothS = createSlider(0.0, 50.0, 25);
+    octavesS = createSlider(0.0, 25.0, 12);
+    falloffS = createSlider(0.0, 50.0, 35);
+    chunkSizeS = createInput(100, "number");
     
-    colorMode(RGB);
-    let tg = new TerrainGenerator(150, 150);
+    input();
+
+    camX = -(chunkSize * size)/2;
+    camY = -(chunkSize * size)/2;
+
+    let tg = new TerrainGenerator(chunkSize, chunkSize);
     terrain = tg.generate();
     let genB = createButton("Regenerate");
     genB.mousePressed(()=>{
-        tg = new TerrainGenerator(150, 150);
+        tg = new TerrainGenerator(chunkSize, chunkSize);
         terrain = tg.generate();
         console.log("abc")
     });
-    createCanvas(600, 600);
+    let canv = createCanvas(600, 600);
+
+    leftCol.child(canv);
+
+    rightCol.child(createP("Chunk Size:"));
+    rightCol.child(chunkSizeS);
+    rightCol.child(createP("Seed:"));
+    rightCol.child(seedS);
+    rightCol.child(createP("Resolution:"));
+    rightCol.child(resoS);
+    rightCol.child(createP("Color Smoothing:"));
+    rightCol.child(smoothS);
+    rightCol.child(createP("Octaves:"));
+    rightCol.child(octavesS);
+    rightCol.child(createP("Falloff:"));
+    rightCol.child(falloffS);
+    rightCol.child(createP("<br>"));
+    rightCol.child(genB);
+    rightCol.child(createP("<br>"));
+    rightCol.child(createP("Zoom:"));
+    rightCol.child(sizeS);
+    rightCol.addClass("list");
+    container.child(leftCol);
+    container.child(rightCol);
 
 }
 
 function draw() 
 {
-    seed = seedS.value();
-    resolution = Math.PI * resoS.value();
-    size = sizeS.value();
+    input();
     frameRate(30);
     clear();
     for(let x = 0; x<terrain.length; x++) 
@@ -148,8 +203,18 @@ function draw()
     keyCheck();
 }
 
-let camX = 0;
-let camY = 0;
+
+
+function input() {
+    seed = seedS.value();
+    resolution = Math.PI * resoS.value();
+    size = sizeS.value();
+    colorSmoothing = smoothS.value() / 100;
+    octaves = octavesS.value();
+    falloff = falloffS.value() / 100;
+    chunkSize = chunkSizeS.value();
+    
+}
 
 function keyCheck() {
     
