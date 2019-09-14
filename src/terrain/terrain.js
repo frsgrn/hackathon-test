@@ -1,4 +1,5 @@
-class Tile {
+class Tile 
+{
     this.type;
     this.texture;
     constructor(type, tex) 
@@ -10,16 +11,13 @@ class Tile {
 
 class TerrainGenerator 
 {
-    this.w;
-    this.h;
-
     constructor(width, height)
     {
         this.w = width;
         this.h = height;
     }
 
-    generate()
+    this.generate = function()
     {
         let arr = [];
         for(let x = 0; x < this.w; x++) 
