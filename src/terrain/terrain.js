@@ -2,17 +2,18 @@ let colorSmoothing;
 
 class Tile
 {
+    types = [
+        {"type":"water", "height":0.36, "color":color(127,127,255)},
+        {"type":"sand", "height":0.4, "color":color(218,165,32)},
+        {"type":"grass", "height":0.6, "color":color(63, 125, 32)},
+        {"type":"ground", "height":0.65, "color":color(47, 74, 44)},
+        {"type":"mountain", "height":0.70, "color":color(84, 87, 82)},
+        {"type":"snow", "height":1, "color":color(220, 220, 220)},
+    ];
+
     constructor(val)
     {
-        this.types = [
-            {"type":"water", "height":0.36, "color":color(127,127,255)},
-            {"type":"sand", "height":0.4, "color":color(218,165,32)},
-            {"type":"grass", "height":0.6, "color":color(63, 125, 32)},
-            {"type":"ground", "height":0.65, "color":color(47, 74, 44)},
-            {"type":"mountain", "height":0.70, "color":color(84, 87, 82)},
-            {"type":"snow", "height":1, "color":color(220, 220, 220)},
-        ];
-        this.newColor;
+        
         let i = 0;
         for(let t of this.types)
         {
@@ -30,6 +31,7 @@ class Tile
 
     draw(x, y, w, h, west, north, east, south)
     {
+        
         noStroke();
         if(this.newColor)
         {
@@ -59,6 +61,7 @@ class Tile
         return this.type;
     }
 }
+
 let resolution;
 let seed;
 let falloff;
@@ -72,40 +75,44 @@ class TerrainGenerator
         this.h = height;
         noiseSeed(seed);
         noiseDetail(octaves, falloff);
-        if(xcoord, ycoord){
-          this.xoff = -(xcoord * this.w);
-          this.yoff = -(ycoord * this.h);
-        }else {
-          this.xoff = 0;
-          this.yoff = 0;
-        }
+        this.worldLocationX = (xcoord * this.w);
+        this.worldLocationY = (ycoord * this.h);
     }
 
     draw(xoff, yoff)
     {
-      for(let x = 0 + xoff; x < this.w + xoff; x++)
+      for(let x = 0; x < this.w; x++)
       {
-          for(let y = 0 + yoff; y<this.h + yoff; y++)
+          for(let y = 0; y<this.h; y++)
           {
-              let notLast = (x < this.tiles.length - 1 && y < this.tiles[0].length - 1);
-              let notFirst = (x > 0 && y > 0);
+            let notLast = (x < this.tiles.length - 1 && y < this.tiles[0].length - 1);
+            let notFirst = (x > 0 && y > 0);
+            let xpos = (x + xoff + this.worldLocationX) * size;
+            let ypos = (y + yoff + this.worldLocationY) * size;
 
               if(notFirst & notLast)
               {
-                  this.tiles[x][y].draw(x * size,y * size, size, size, this.tiles[x-1][y], this.tiles[x][y-1], this.tiles[x+1][y], this.tiles[x][y+1]);
+                  this.tiles[x][y].draw(xpos, ypos, size, size, this.tiles[x-1][y], this.tiles[x][y-1], this.tiles[x+1][y], this.tiles[x][y+1]);
               }
               else if(!notFirst && notLast)
               {
-                  this.tiles[x][y].draw(x * size,y * size, size, size, this.tiles[x+1][y], this.tiles[x][y+1]);
+                  this.tiles[x][y].draw(xpos, ypos, size, size, this.tiles[x+1][y], this.tiles[x][y+1]);
               }
               else if(!notLast && notFirst)
               {
-                  this.tiles[x][y].draw(x * size,y * size, size, size, this.tiles[x-1][y], this.tiles[x][y-1]);
+                  this.tiles[x][y].draw(xpos, ypos, size, size, this.tiles[x-1][y], this.tiles[x][y-1]);
               }else {
-                  this.tiles[x][y].draw(x * size,y * size, size, size,);
+                  this.tiles[x][y].draw(xpos, ypos, size, size);
               }
           }
       }
+    }
+
+    outline(xoff, yoff)
+    {   
+        noFill();
+        stroke(0);
+        rect((this.worldLocationX + xoff) * size, (this.worldLocationY + yoff) * size, this.w * size, this.h * size);
     }
 
     generate()
@@ -125,7 +132,7 @@ class TerrainGenerator
         {
             for(let y = 0; y < this.h; y++)
             {
-                arr[x][y] = new Tile(noise((x+this.xoff)/resolution, (y+this.yoff)/resolution));
+                arr[x][y] = new Tile(noise((x+this.worldLocationX)/resolution, (y+this.worldLocationY)/resolution));
             }
         }
         this.tiles = arr;
@@ -139,10 +146,12 @@ let chunks = [];
 let chunkPos;
 
 let chunkSize;
-let size;
+let size = 4;
 
 let camX = 0;
 let camY = 0;
+
+let range = 0;
 
 // SLIDERS
 let chunkSizeS;
@@ -155,7 +164,8 @@ let heightS;
 let octavesS;
 let falloffS;
 
-let worldSize = 3;
+let worldSize = 11;
+let grid;
 
 function setup()
 {
@@ -163,40 +173,48 @@ function setup()
     let leftCol = createDiv();
     let rightCol = createDiv();
     chunkPos = createVector(floor(worldSize/2), floor(worldSize/2));
-
+    
     seedS = createSlider(0, 255, 101);
     resoS = createSlider(0, 25, 4);
     // sizeS = createSlider(0, 25, 8);
     smoothS = createSlider(0.0, 50.0, 25);
     octavesS = createSlider(0.0, 25.0, 12);
     falloffS = createSlider(0.0, 50.0, 35);
-    chunkSizeS = createInput(100, "number");
-
+    chunkSizeS = createInput(8, "number");
     input();
+    grid = floor(width/chunkSize);
 
-    camX = -(chunkSize * size)/2;
-    camY = -(chunkSize * size)/2;
+    // camX = -(chunkSize * size)/2;
+    // camY = -(chunkSize * size)/2;
 
     let genB = createButton("Regenerate");
 
     let regen = function()
     {
-      for(let x = 0; x<worldSize; x++)
-      {
-        chunks[x] = [];
-        for(let y = 0; y<worldSize; y++)
+        chunks = [];
+        for(let a = 0; a< worldSize; a++)
         {
-          let chunk = new TerrainGenerator(chunkSize, chunkSize, x, y);
-          chunks[x][y] = chunk;
+            chunks[a] = [worldSize];
         }
-      }
+
+        for(let x = 0; x < worldSize; x++)
+        {
+            for(let y = 0; y < worldSize; y++)
+            {
+                let chunk = new TerrainGenerator(chunkSize, chunkSize, chunkPos.x + x, chunkPos.y + y);
+                chunk.generate();
+                chunks[x][y] = chunk;
+            }
+        }
+
+        updateIfLayoutChanged();
     };
 
     genB.mousePressed(()=>{ regen(); });
     regen();
 
-    let canv = createCanvas(600, 600);
-    size = width/chunkSize;
+    let canv = createCanvas(512, 512);
+    //size = width/chunkSize;
 
     leftCol.child(canv);
 
@@ -228,13 +246,30 @@ function draw()
     input();
     frameRate(30);
     clear();
-
-    chunks[chunkPos.x][chunkPos.y].draw(camX, camY);
-
-
+    renderChunks();
     keyCheck();
 }
 
+let scrollX = 0;
+let scrollY = 0;
+
+function renderChunks() 
+{
+    let center = floor(worldSize/2);
+    for(let x = 0; x<worldSize; x++)
+    {
+        for(let y = 0; y<worldSize; y++)
+        {
+            if(abs(x - center) <= range && abs(y - center) <= range || range == 0) 
+            {
+                chunks[x][y].draw(0 + scrollX, 0 + scrollY);
+            }else 
+            {
+                chunks[x][y].outline(0 + scrollX, 0 + scrollY);
+            }
+        }
+    }
+}
 
 
 function input() {
@@ -244,25 +279,66 @@ function input() {
     colorSmoothing = smoothS.value() / 100;
     octaves = octavesS.value();
     falloff = falloffS.value() / 100;
-    chunkSize = chunkSizeS.value();
+    chunkSize = parseFloat(chunkSizeS.value());
+}
+
+function keyCheck() 
+{
+    if(keyIsDown(65))
+    {
+        camX ++;
+    }
+    else if(keyIsDown(68))
+    {
+        camX --;
+    }
+
+    if(keyIsDown(87))
+    {
+        camY ++;
+    }
+    else if(keyIsDown(83))
+    {
+        camY --;
+    }
+
+    chunkPos.x = -floor((camX * size / chunkSize));
+    chunkPos.y = -floor((camY * size / chunkSize));
+    updateIfLayoutChanged();
 
 }
 
-function keyCheck() {
+let lastPos;
 
-
-    if(keyIsDown(65)){
-        camX += size;
-    }
-    if(keyIsDown(68)){
-        camX -= size;
-    }
-
-    if(keyIsDown(87)){
-        camY += size;
-    }
-    if(keyIsDown(83)){
-        camY -= size;
+function updateIfLayoutChanged() 
+{
+    if(!chunkPos.equals(lastPos)) 
+    {
+        layout();
     }
 
+    lastPos = chunkPos.copy();
+}
+
+function layout()
+{
+    // chunks = [];
+    // for(let a = 0; a< worldSize; a++)
+    // {
+    //     chunks[a] = [worldSize];
+    // }
+
+    for(let x = 0; x < worldSize; x++)
+    {
+        for(let y = 0; y < worldSize; y++)
+        {
+
+            let chunk = new TerrainGenerator(chunkSize, chunkSize, chunkPos.x + x, chunkPos.y + y);
+            chunk.generate();
+            chunks[x][y] = chunk;
+        }
+    }
+
+    scrollX = -chunkPos.x * (chunkSize);
+    scrollY = -chunkPos.y * (chunkSize);
 }
